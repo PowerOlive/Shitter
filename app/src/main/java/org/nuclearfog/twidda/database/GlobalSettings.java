@@ -9,12 +9,13 @@ import android.graphics.Typeface;
 import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 
-import org.nuclearfog.twidda.backend.items.TrendLocation;
+import org.nuclearfog.twidda.backend.model.TrendLocation;
 
 import static android.content.Context.MODE_PRIVATE;
 import static android.graphics.Typeface.DEFAULT;
 import static android.graphics.Typeface.MONOSPACE;
 import static android.graphics.Typeface.NORMAL;
+import static android.graphics.Typeface.SANS_SERIF;
 import static android.graphics.Typeface.SERIF;
 
 /**
@@ -45,32 +46,42 @@ public class GlobalSettings {
     public static final String BANNER_IMG_MID_RES = "/600x200";
 
     /**
+     * custom android font
+     */
+    private static final Typeface SANS_SERIF_THIN = Typeface.create("sans-serif-thin", NORMAL);
+
+    /**
      * custom font families from android system
      */
-    public static final Typeface[] FONTS = {DEFAULT, MONOSPACE, SERIF, Typeface.create("sans-serif-thin", NORMAL)};
+    public static final Typeface[] FONTS = {DEFAULT, MONOSPACE, SERIF, SANS_SERIF, SANS_SERIF_THIN};
 
     /**
      * names of the font types {@link #FONTS}
      */
-    public static final String[] FONT_NAMES = {"Default", "Monospace", "Serif", "sans-serif-thin"};
+    public static final String[] FONT_NAMES = {"Default", "Monospace", "Serif", "Sans-Serif", "sans-serif-thin"};
 
-    // Setting names stored in SharedPreference
+    /**
+     * singleton instance
+     */
+    private static final GlobalSettings ourInstance = new GlobalSettings();
+
+    // App preference names
     private static final String BACKGROUND_COLOR = "background_color";
     private static final String HIGHLIGHT_COLOR = "highlight_color";
     private static final String FONT_COLOR = "font_color";
     private static final String POPUP_COLOR = "tweet_color";
     private static final String CARD_COLOR = "card_color";
     private static final String ICON_COLOR = "icon_color";
+    private static final String RT_COLOR = "retweet_color";
+    private static final String FV_COLOR = "favorite_color";
+    private static final String FOLLOW_COLOR = "following_color";
+    private static final String F_REQ_COLOR = "following_pending_color";
     private static final String INDEX_FONT = "index_font";
     private static final String LIST_SIZE = "preload";
     private static final String IMAGE_LOAD = "image_load";
     private static final String IMAGE_QUALITY = "image_hq";
     private static final String ANSWER_LOAD = "answer_load";
     private static final String PROFILE_OVERLAP = "profile_toolbar_overlap";
-    private static final String LOGGED_IN = "login";
-    private static final String AUTH_KEY1 = "key1";
-    private static final String AUTH_KEY2 = "key2";
-    private static final String USER_ID = "userID";
     private static final String PROXY_SET = "proxy_enabled";
     private static final String AUTH_SET = "proxy_auth_set";
     private static final String PROXY_ADDR = "proxy_addr";
@@ -79,28 +90,37 @@ public class GlobalSettings {
     private static final String PROXY_PASS = "proxy_pass";
     private static final String TREND_LOC = "location";
     private static final String TREND_ID = "world_id";
+    private static final String LINK_PREVIEW = "link_preview";
     private static final String CUSTOM_CONSUMER_KEY_SET = "custom_api_keys";
     private static final String CUSTOM_CONSUMER_KEY_1 = "api_key1";
     private static final String CUSTOM_CONSUMER_KEY_2 = "api_key2";
+
+    // login specific preference names
+    private static final String LOGGED_IN = "login";
+    private static final String CURRENT_ID = "userID";
+    private static final String CURRENT_AUTH_KEY1 = "key1";
+    private static final String CURRENT_AUTH_KEY2 = "key2";
 
     // file name of the preferences
     private static final String APP_SETTINGS = "settings";
 
     // Default App settings
-    @IntRange(from = 0, to = 3)
+    @IntRange(from = 0, to = 4)
     private static final int DEFAULT_FONT_INDEX = 0;
     @IntRange(from = 0, to = 100)
     private static final int DEFAULT_LIST_SIZE = 20;
     private static final int DEFAULT_BACKGROUND_COLOR = 0xff0f114a;
     private static final int DEFAULT_HIGHLIGHT_COLOR = 0xffff00ff;
-    private static final int DEFAULT_FONT_COLOR = 0xffffffff;
+    private static final int DEFAULT_FONT_COLOR = Color.WHITE;
     private static final int DEFAULT_POPUP_COLOR = 0xff19aae8;
     private static final int DEFAULT_CARD_COLOR = 0x40000000;
     private static final int DEFAULT_ICON_COLOR = Color.WHITE;
-    private static final int DEFAULT_LOCATION_WOEID = 1;
+    private static final int DEFAULT_RT_ICON_COLOR = Color.GREEN;
+    private static final int DEFAULT_FV_ICON_COLOR = Color.YELLOW;
+    private static final int DEFAULT_FR_ICON_COLOR = Color.YELLOW;
+    private static final int DEFAULT_FW_ICON_COLOR = Color.CYAN;
+    private static final int DEFAULT_LOCATION_ID = 1;
     private static final String DEFAULT_LOCATION_NAME = "Worldwide";
-
-    private static final GlobalSettings ourInstance = new GlobalSettings();
 
     private SharedPreferences settings;
     private TrendLocation location;
@@ -114,13 +134,18 @@ public class GlobalSettings {
     private boolean isProxyAuthSet;
     private boolean customAPIKey;
     private boolean toolbarOverlap;
-    private int indexFont;
+    private boolean linkPreview;
     private int background_color;
     private int font_color;
     private int highlight_color;
     private int card_color;
     private int icon_color;
     private int popup_color;
+    private int retweet_color;
+    private int favorite_color;
+    private int request_color;
+    private int follow_color;
+    private int indexFont;
     private int listSize;
     private long userId;
 
@@ -277,12 +302,106 @@ public class GlobalSettings {
     }
 
     /**
+     * get icon color of the favorite icon
+     *
+     * @return icon color
+     */
+    public int getFavoriteIconColor() {
+        return favorite_color;
+    }
+
+    /**
+     * set icon color of the favorite icon (enabled)
+     *
+     * @param color icon color
+     */
+    public void setFavoriteIconColor(int color) {
+        favorite_color = color;
+
+        Editor edit = settings.edit();
+        edit.putInt(FV_COLOR, color);
+        edit.apply();
+    }
+
+    /**
+     * get retweet icon color
+     *
+     * @return icon color
+     */
+    public int getRetweetIconColor() {
+        return retweet_color;
+    }
+
+    /**
+     * set retweet icon color (enabled)
+     *
+     * @param color icon color
+     */
+    public void setRetweetIconColor(int color) {
+        retweet_color = color;
+
+        Editor edit = settings.edit();
+        edit.putInt(RT_COLOR, color);
+        edit.apply();
+    }
+
+    /**
+     * get icon color of the follow button
+     *
+     * @return icon color
+     */
+    public int getFollowPendingColor() {
+        return request_color;
+    }
+
+    /**
+     * set icon color of the follow button
+     *
+     * @param color icon color
+     */
+    public void setFollowPendingColor(int color) {
+        request_color = color;
+
+        Editor edit = settings.edit();
+        edit.putInt(F_REQ_COLOR, color);
+        edit.apply();
+    }
+
+    /**
+     * get icon color for the follow button
+     *
+     * @return icon color
+     */
+    public int getFollowIconColor() {
+        return follow_color;
+    }
+
+    /**
+     * set icon color for the follow button
+     *
+     * @param color color value for the follow button if enabled
+     */
+    public void setFollowIconColor(int color) {
+        follow_color = color;
+
+        Editor edit = settings.edit();
+        edit.putInt(FOLLOW_COLOR, color);
+        edit.apply();
+    }
+
+    /**
      * return an array of all installed colors
      *
      * @return array of colors
      */
     public int[] getAllColors() {
-        return new int[]{background_color, font_color, popup_color, highlight_color, card_color, icon_color};
+        return new int[]{
+                background_color, font_color,
+                popup_color, highlight_color,
+                card_color, icon_color,
+                retweet_color, favorite_color,
+                request_color, follow_color
+        };
     }
 
     /**
@@ -290,7 +409,7 @@ public class GlobalSettings {
      *
      * @return true if enabled
      */
-    public boolean getImageLoad() {
+    public boolean imagesEnabled() {
         return loadImage;
     }
 
@@ -312,7 +431,7 @@ public class GlobalSettings {
      *
      * @return true if enabled
      */
-    public boolean getToolbarOverlap() {
+    public boolean toolbarOverlapEnabled() {
         return toolbarOverlap;
     }
 
@@ -326,6 +445,24 @@ public class GlobalSettings {
 
         Editor edit = settings.edit();
         edit.putBoolean(PROFILE_OVERLAP, enable);
+        edit.apply();
+    }
+
+    /**
+     *
+     */
+    public boolean linkPreviewEnabled() {
+        return linkPreview;
+    }
+
+    /**
+     *
+     */
+    public void setLinkPreview(boolean enable) {
+        linkPreview = enable;
+
+        Editor edit = settings.edit();
+        edit.putBoolean(LINK_PREVIEW, enable);
         edit.apply();
     }
 
@@ -377,7 +514,7 @@ public class GlobalSettings {
      *
      * @return true if enabled
      */
-    public boolean getAnswerLoad() {
+    public boolean replyLoadingEnabled() {
         return loadAnswer;
     }
 
@@ -676,9 +813,9 @@ public class GlobalSettings {
 
         Editor e = settings.edit();
         e.putBoolean(LOGGED_IN, true);
-        e.putLong(USER_ID, userId);
-        e.putString(AUTH_KEY1, key1);
-        e.putString(AUTH_KEY2, key2);
+        e.putLong(CURRENT_ID, userId);
+        e.putString(CURRENT_AUTH_KEY1, key1);
+        e.putString(CURRENT_AUTH_KEY2, key2);
         e.apply();
     }
 
@@ -742,6 +879,10 @@ public class GlobalSettings {
         popup_color = settings.getInt(POPUP_COLOR, DEFAULT_POPUP_COLOR);
         card_color = settings.getInt(CARD_COLOR, DEFAULT_CARD_COLOR);
         icon_color = settings.getInt(ICON_COLOR, DEFAULT_ICON_COLOR);
+        retweet_color = settings.getInt(RT_COLOR, DEFAULT_RT_ICON_COLOR);
+        favorite_color = settings.getInt(FV_COLOR, DEFAULT_FV_ICON_COLOR);
+        request_color = settings.getInt(F_REQ_COLOR, DEFAULT_FR_ICON_COLOR);
+        follow_color = settings.getInt(FOLLOW_COLOR, DEFAULT_FW_ICON_COLOR);
         indexFont = settings.getInt(INDEX_FONT, DEFAULT_FONT_INDEX);
         listSize = settings.getInt(LIST_SIZE, DEFAULT_LIST_SIZE);
         isProxyEnabled = settings.getBoolean(PROXY_SET, false);
@@ -751,18 +892,20 @@ public class GlobalSettings {
         loadAnswer = settings.getBoolean(ANSWER_LOAD, false);
         hqImages = settings.getBoolean(IMAGE_QUALITY, false);
         toolbarOverlap = settings.getBoolean(PROFILE_OVERLAP, true);
+        linkPreview = settings.getBoolean(LINK_PREVIEW, false);
         customAPIKey = settings.getBoolean(CUSTOM_CONSUMER_KEY_SET, false);
-        api_key1 = settings.getString(CUSTOM_CONSUMER_KEY_1, "");
-        api_key2 = settings.getString(CUSTOM_CONSUMER_KEY_2, "");
-        auth_key1 = settings.getString(AUTH_KEY1, "");
-        auth_key2 = settings.getString(AUTH_KEY2, "");
         proxyHost = settings.getString(PROXY_ADDR, "");
         proxyPort = settings.getString(PROXY_PORT, "");
         proxyUser = settings.getString(PROXY_USER, "");
         proxyPass = settings.getString(PROXY_PASS, "");
-        userId = settings.getLong(USER_ID, 0);
         String place = settings.getString(TREND_LOC, DEFAULT_LOCATION_NAME);
-        int woeId = settings.getInt(TREND_ID, DEFAULT_LOCATION_WOEID);
+        int woeId = settings.getInt(TREND_ID, DEFAULT_LOCATION_ID);
         location = new TrendLocation(place, woeId);
+
+        api_key1 = settings.getString(CUSTOM_CONSUMER_KEY_1, "");
+        api_key2 = settings.getString(CUSTOM_CONSUMER_KEY_2, "");
+        auth_key1 = settings.getString(CURRENT_AUTH_KEY1, "");
+        auth_key2 = settings.getString(CURRENT_AUTH_KEY2, "");
+        userId = settings.getLong(CURRENT_ID, 0);
     }
 }

@@ -37,13 +37,14 @@ import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.FragmentAdapter;
 import org.nuclearfog.twidda.backend.UserAction;
 import org.nuclearfog.twidda.backend.engine.EngineException;
-import org.nuclearfog.twidda.backend.items.Relation;
-import org.nuclearfog.twidda.backend.items.User;
+import org.nuclearfog.twidda.backend.model.Relation;
+import org.nuclearfog.twidda.backend.model.User;
 import org.nuclearfog.twidda.backend.utils.AppStyles;
-import org.nuclearfog.twidda.backend.utils.DialogBuilder;
-import org.nuclearfog.twidda.backend.utils.DialogBuilder.OnDialogConfirmListener;
 import org.nuclearfog.twidda.backend.utils.ErrorHandler;
 import org.nuclearfog.twidda.database.GlobalSettings;
+import org.nuclearfog.twidda.dialog.ConfirmDialog;
+import org.nuclearfog.twidda.dialog.ConfirmDialog.DialogType;
+import org.nuclearfog.twidda.dialog.ConfirmDialog.OnConfirmListener;
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -78,9 +79,6 @@ import static org.nuclearfog.twidda.backend.UserAction.Action.ACTION_UNFOLLOW;
 import static org.nuclearfog.twidda.backend.UserAction.Action.ACTION_UNMUTE;
 import static org.nuclearfog.twidda.backend.UserAction.Action.PROFILE_DB;
 import static org.nuclearfog.twidda.backend.UserAction.Action.PROFILE_lOAD;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.PROFILE_BLOCK;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.PROFILE_MUTE;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.PROFILE_UNFOLLOW;
 import static org.nuclearfog.twidda.database.GlobalSettings.PROFILE_IMG_HIGH_RES;
 import static org.nuclearfog.twidda.fragment.UserFragment.KEY_USER_UPDATE;
 import static org.nuclearfog.twidda.fragment.UserFragment.RETURN_USER_UPDATED;
@@ -91,7 +89,7 @@ import static org.nuclearfog.twidda.fragment.UserFragment.RETURN_USER_UPDATED;
  * @author nuclearfog
  */
 public class UserProfile extends AppCompatActivity implements OnClickListener, OnTagClickListener,
-        OnTabSelectedListener, OnDialogConfirmListener, Callback {
+        OnTabSelectedListener, OnConfirmListener, Callback {
 
     /**
      * Key for the user ID
@@ -124,12 +122,12 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
     public static final int RETURN_PROFILE_CHANGED = 0xF5C0E570;
 
     /**
-     * background color mask for TextView backgrounds
+     * background color transparency mask for TextView backgrounds
      */
     private static final int TEXT_TRANSPARENCY = 0xafffffff;
 
     /**
-     * background color mask for toolbar background
+     * background color transparency mask for toolbar background
      */
     public static final int TOOLBAR_TRANSPARENCY = 0x5fffffff;
 
@@ -175,7 +173,7 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         tabPages = findViewById(R.id.profile_pager);
 
         settings = GlobalSettings.getInstance(this);
-        if (!settings.getToolbarOverlap()) {
+        if (!settings.toolbarOverlapEnabled()) {
             ConstraintSet constraints = new ConstraintSet();
             constraints.clone(profileView);
             constraints.connect(R.id.profile_banner, ConstraintSet.TOP, R.id.profile_toolbar, ConstraintSet.BOTTOM);
@@ -194,6 +192,7 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         user_bio.setLinkTextColor(settings.getHighlightColor());
         AppStyles.setTheme(settings, root);
         user_website.setTextColor(settings.getHighlightColor());
+        tabLayout.setBackgroundColor(Color.TRANSPARENT);
 
         toolbar.setTitle("");
         setSupportActionBar(toolbar);
@@ -201,9 +200,10 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         tabPages.setAdapter(adapter);
         tabPages.setOffscreenPageLimit(2);
         tabLayout.setupWithViewPager(tabPages);
-        unfollowConfirm = DialogBuilder.create(this, PROFILE_UNFOLLOW, this);
-        blockConfirm = DialogBuilder.create(this, PROFILE_BLOCK, this);
-        muteConfirm = DialogBuilder.create(this, PROFILE_MUTE, this);
+
+        unfollowConfirm = new ConfirmDialog(this, DialogType.PROFILE_UNFOLLOW, this);
+        blockConfirm = new ConfirmDialog(this, DialogType.PROFILE_BLOCK, this);
+        muteConfirm = new ConfirmDialog(this, DialogType.PROFILE_MUTE, this);
 
         Intent i = getIntent();
         user = (User) i.getSerializableExtra(KEY_PROFILE_DATA);
@@ -284,12 +284,12 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         if (user != null) {
             if (user.followRequested()) {
                 MenuItem followIcon = m.findItem(R.id.profile_follow);
-                AppStyles.setMenuItemColor(followIcon, Color.YELLOW);
+                AppStyles.setMenuItemColor(followIcon, settings.getFollowPendingColor());
                 followIcon.setTitle(R.string.menu_follow_requested);
             }
-            if (user.isLocked() && !user.isCurrentUser()) {
+            if (user.isCurrentUser() || !user.isLocked()) {
                 MenuItem listItem = m.findItem(R.id.profile_lists);
-                listItem.setVisible(false);
+                listItem.setVisible(true);
             }
             if (user.isCurrentUser()) {
                 MenuItem dmIcon = m.findItem(R.id.profile_message);
@@ -309,7 +309,7 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
             if (relation.isFriend()) {
                 MenuItem followIcon = m.findItem(R.id.profile_follow);
                 MenuItem listItem = m.findItem(R.id.profile_lists);
-                AppStyles.setMenuItemColor(followIcon, Color.CYAN);
+                AppStyles.setMenuItemColor(followIcon, settings.getFollowIconColor());
                 followIcon.setTitle(R.string.menu_user_unfollow);
                 listItem.setVisible(true);
             }
@@ -440,20 +440,25 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         }
         // link points to a tweet
         if (LINK_PATTERN.matcher(shortLink).matches()) {
-            String name = shortLink.substring(20, shortLink.indexOf('/', 20));
-            long id = Long.parseLong(shortLink.substring(shortLink.lastIndexOf('/') + 1));
-            Intent intent = new Intent(this, TweetActivity.class);
-            intent.putExtra(KEY_TWEET_ID, id);
-            intent.putExtra(KEY_TWEET_NAME, name);
-            startActivity(intent);
-        } else {
-            // open link in browser
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(tag));
             try {
+                String name = shortLink.substring(20, shortLink.indexOf('/', 20));
+                long id = Long.parseLong(shortLink.substring(shortLink.lastIndexOf('/') + 1));
+                Intent intent = new Intent(this, TweetActivity.class);
+                intent.putExtra(KEY_TWEET_ID, id);
+                intent.putExtra(KEY_TWEET_NAME, name);
                 startActivity(intent);
-            } catch (ActivityNotFoundException err) {
-                Toast.makeText(this, R.string.error_connection_failed, LENGTH_SHORT).show();
+                return;
+            } catch (Exception err) {
+                err.printStackTrace();
+                // open link in browser if an error occurs
             }
+        }
+        // open link in browser
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(tag));
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException err) {
+            Toast.makeText(this, R.string.error_connection_failed, LENGTH_SHORT).show();
         }
     }
 
@@ -518,19 +523,19 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
 
 
     @Override
-    public void onConfirm(DialogBuilder.DialogType type) {
+    public void onConfirm(DialogType type) {
         if (user != null) {
             profileAsync = new UserAction(this, user.getId());
             // confirmed unfollowing user
-            if (type == PROFILE_UNFOLLOW) {
+            if (type == DialogType.PROFILE_UNFOLLOW) {
                 profileAsync.execute(ACTION_UNFOLLOW);
             }
             // confirmed blocking user
-            else if (type == PROFILE_BLOCK) {
+            else if (type == DialogType.PROFILE_BLOCK) {
                 profileAsync.execute(ACTION_BLOCK);
             }
             // confirmed muting user
-            else if (type == PROFILE_MUTE) {
+            else if (type == DialogType.PROFILE_MUTE) {
                 profileAsync.execute(ACTION_MUTE);
             }
         }
@@ -557,7 +562,7 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
     @Override
     public void onSuccess() {
         // setup toolbar background
-        if (settings.getToolbarOverlap()) {
+        if (settings.toolbarOverlapEnabled()) {
             AppStyles.setToolbarBackground(UserProfile.this, bannerImage, toolbarBackground);
         }
     }
@@ -626,7 +631,7 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
         } else {
             user_website.setVisibility(GONE);
         }
-        if (settings.getImageLoad()) {
+        if (settings.imagesEnabled()) {
             if (user.hasBannerImage()) {
                 String bannerLink = user.getBannerLink() + settings.getBannerSuffix();
                 Picasso.get().load(bannerLink).error(R.drawable.no_banner).into(bannerImage, this);
@@ -689,9 +694,9 @@ public class UserProfile extends AppCompatActivity implements OnClickListener, O
      *
      * @param err Engine Exception
      */
-    public void onError(EngineException err) {
+    public void onError(@Nullable EngineException err) {
         ErrorHandler.handleFailure(this, err);
-        if (user == null || err.resourceNotFound()) {
+        if (user == null || (err != null && err.resourceNotFound())) {
             finish();
         }
     }

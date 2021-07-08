@@ -14,9 +14,9 @@ import com.squareup.picasso.Picasso;
 import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.holder.Footer;
 import org.nuclearfog.twidda.adapter.holder.ListHolder;
-import org.nuclearfog.twidda.backend.items.TwitterList;
-import org.nuclearfog.twidda.backend.items.User;
 import org.nuclearfog.twidda.backend.lists.UserLists;
+import org.nuclearfog.twidda.backend.model.TwitterList;
+import org.nuclearfog.twidda.backend.model.User;
 import org.nuclearfog.twidda.database.GlobalSettings;
 import org.nuclearfog.twidda.fragment.UserListFragment;
 
@@ -153,7 +153,7 @@ public class ListAdapter extends Adapter<ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (viewType == ITEM_LIST) {
-            final ListHolder itemHolder = new ListHolder(parent);
+            final ListHolder itemHolder = new ListHolder(parent, settings);
             itemHolder.profile_img.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -178,7 +178,7 @@ public class ListAdapter extends Adapter<ViewHolder> {
             });
             return itemHolder;
         } else {
-            final Footer footer = new Footer(parent, false);
+            final Footer footer = new Footer(parent, settings, false);
             footer.loadBtn.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -211,7 +211,7 @@ public class ListAdapter extends Adapter<ViewHolder> {
                 vh.textViews[4].setText(formatCreationTime(item.getCreatedAt()));
                 vh.textViews[5].setText(NUM_FORMAT.format(item.getMemberCount()));
                 vh.textViews[6].setText(NUM_FORMAT.format(item.getSubscriberCount()));
-                if (settings.getImageLoad() && owner.hasProfileImage()) {
+                if (settings.imagesEnabled() && owner.hasProfileImage()) {
                     String pbLink = owner.getImageLink();
                     if (!owner.hasDefaultProfileImage())
                         pbLink += settings.getImageSuffix();

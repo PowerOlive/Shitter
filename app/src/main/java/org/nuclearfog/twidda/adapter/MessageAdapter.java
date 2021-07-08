@@ -16,9 +16,9 @@ import org.nuclearfog.tag.Tagger.OnTagClickListener;
 import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.holder.Footer;
 import org.nuclearfog.twidda.adapter.holder.MessageHolder;
-import org.nuclearfog.twidda.backend.items.Message;
-import org.nuclearfog.twidda.backend.items.User;
 import org.nuclearfog.twidda.backend.lists.MessageList;
+import org.nuclearfog.twidda.backend.model.Message;
+import org.nuclearfog.twidda.backend.model.User;
 import org.nuclearfog.twidda.database.GlobalSettings;
 
 import jp.wasabeef.picasso.transformations.RoundedCornersTransformation;
@@ -36,8 +36,19 @@ import static org.nuclearfog.twidda.backend.utils.StringTools.formatCreationTime
  */
 public class MessageAdapter extends Adapter<ViewHolder> {
 
+    /**
+     * index of {@link #loadingIndex} if no index is defined
+     */
     private static final int NO_LOADING = -1;
+
+    /**
+     * view type of a message item
+     */
     private static final int TYPE_MESSAGE = 0;
+
+    /**
+     * view type of a footer item
+     */
     private static final int TYPE_FOOTER = 1;
 
     private OnItemSelected itemClickListener;
@@ -129,7 +140,7 @@ public class MessageAdapter extends Adapter<ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (viewType == TYPE_MESSAGE) {
-            final MessageHolder vh = new MessageHolder(parent);
+            final MessageHolder vh = new MessageHolder(parent, settings);
             vh.buttons[0].setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -159,7 +170,7 @@ public class MessageAdapter extends Adapter<ViewHolder> {
             });
             return vh;
         } else {
-            final Footer footer = new Footer(parent, false);
+            final Footer footer = new Footer(parent, settings, false);
             footer.loadBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -202,7 +213,7 @@ public class MessageAdapter extends Adapter<ViewHolder> {
                 } else {
                     holder.lockedIcon.setVisibility(GONE);
                 }
-                if (settings.getImageLoad() && sender.hasProfileImage()) {
+                if (settings.imagesEnabled() && sender.hasProfileImage()) {
                     String pbLink = sender.getImageLink();
                     if (!sender.hasDefaultProfileImage())
                         pbLink += settings.getImageSuffix();

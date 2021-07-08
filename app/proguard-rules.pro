@@ -2,7 +2,7 @@
 # By default, the flags in this file are appended to flags specified
 # in ~/Android/Sdk/tools/proguard/proguard-android.txt
 # You can edit the include path and order by changing the proguardFiles
-# directive in build.gradle.
+# directive in show.gradle.
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
@@ -33,6 +33,6 @@
 -adaptclassstrings javax.management.DynamicMBean
 
 # use dictionaries to create random package names
--obfuscationdictionary build/obfuscation-dictionary.txt
--classobfuscationdictionary build/class-dictionary.txt
--packageobfuscationdictionary build/package-dictionary.txt
+-obfuscationdictionary dict/obfuscation-dictionary.txt
+-classobfuscationdictionary dict/class-dictionary.txt
+-packageobfuscationdictionary dict/package-dictionary.txt

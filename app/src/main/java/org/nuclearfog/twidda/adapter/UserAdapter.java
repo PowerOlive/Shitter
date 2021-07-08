@@ -14,8 +14,8 @@ import com.squareup.picasso.Picasso;
 import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.holder.Footer;
 import org.nuclearfog.twidda.adapter.holder.UserHolder;
-import org.nuclearfog.twidda.backend.items.User;
 import org.nuclearfog.twidda.backend.lists.UserList;
+import org.nuclearfog.twidda.backend.model.User;
 import org.nuclearfog.twidda.database.GlobalSettings;
 
 import java.text.NumberFormat;
@@ -160,7 +160,7 @@ public class UserAdapter extends Adapter<ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (viewType == ITEM_USER) {
-            final UserHolder vh = new UserHolder(parent);
+            final UserHolder vh = new UserHolder(parent, settings);
             vh.itemView.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -188,7 +188,7 @@ public class UserAdapter extends Adapter<ViewHolder> {
             }
             return vh;
         } else {
-            final Footer footer = new Footer(parent, false);
+            final Footer footer = new Footer(parent, settings, false);
             footer.loadBtn.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -226,7 +226,7 @@ public class UserAdapter extends Adapter<ViewHolder> {
             } else {
                 userholder.lockedIcon.setVisibility(GONE);
             }
-            if (settings.getImageLoad() && user.hasProfileImage()) {
+            if (settings.imagesEnabled() && user.hasProfileImage()) {
                 String pbLink = user.getImageLink();
                 if (!user.hasDefaultProfileImage())
                     pbLink += settings.getImageSuffix();

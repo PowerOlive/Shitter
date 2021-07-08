@@ -1,4 +1,4 @@
-package org.nuclearfog.twidda.backend.items;
+package org.nuclearfog.twidda.backend.model;
 
 import androidx.annotation.NonNull;
 
@@ -25,9 +25,9 @@ public class Message {
      * @param sender   sender user
      * @param receiver receiver user
      */
-    public Message(DirectMessage dm, long twitterId, twitter4j.User sender, twitter4j.User receiver) {
-        this.sender = new User(sender, twitterId);
-        this.receiver = new User(receiver, twitterId);
+    public Message(DirectMessage dm, User sender, User receiver) {
+        this.sender = sender;
+        this.receiver = receiver;
         messageId = dm.getId();
         time = dm.getCreatedAt().getTime();
         setMessageText(dm);
@@ -42,7 +42,7 @@ public class Message {
      * @param time      timestamp long format
      * @param message   message text
      */
-    public Message(long messageId, User sender, User receiver, long time, String message) {
+    public Message(long messageId, @NonNull User sender, @NonNull User receiver, long time, String message) {
         this.messageId = messageId;
         this.sender = sender;
         this.receiver = receiver;

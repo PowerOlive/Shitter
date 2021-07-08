@@ -3,7 +3,6 @@ package org.nuclearfog.twidda.activity;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnDismissListener;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Patterns;
 import android.view.Menu;
@@ -36,13 +35,15 @@ import org.nuclearfog.twidda.adapter.LocationAdapter;
 import org.nuclearfog.twidda.backend.LocationLoader;
 import org.nuclearfog.twidda.backend.engine.EngineException;
 import org.nuclearfog.twidda.backend.engine.TwitterEngine;
-import org.nuclearfog.twidda.backend.items.TrendLocation;
+import org.nuclearfog.twidda.backend.model.TrendLocation;
 import org.nuclearfog.twidda.backend.utils.AppStyles;
-import org.nuclearfog.twidda.backend.utils.DialogBuilder;
-import org.nuclearfog.twidda.backend.utils.DialogBuilder.OnDialogConfirmListener;
 import org.nuclearfog.twidda.backend.utils.ErrorHandler;
+import org.nuclearfog.twidda.database.AccountDatabase;
 import org.nuclearfog.twidda.database.DatabaseAdapter;
 import org.nuclearfog.twidda.database.GlobalSettings;
+import org.nuclearfog.twidda.dialog.ConfirmDialog;
+import org.nuclearfog.twidda.dialog.ConfirmDialog.OnConfirmListener;
+import org.nuclearfog.twidda.dialog.InfoDialog;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -52,9 +53,7 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static org.nuclearfog.twidda.activity.MainActivity.RETURN_APP_LOGOUT;
 import static org.nuclearfog.twidda.activity.MainActivity.RETURN_DB_CLEARED;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.APP_LOG_OUT;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.DEL_DATABASE;
-import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.WRONG_PROXY;
+import static org.nuclearfog.twidda.dialog.ConfirmDialog.DialogType;
 
 /**
  * Settings Activity class.
@@ -62,17 +61,7 @@ import static org.nuclearfog.twidda.backend.utils.DialogBuilder.DialogType.WRONG
  * @author nuclearfog
  */
 public class AppSettings extends AppCompatActivity implements OnClickListener, OnDismissListener, OnSeekBarChangeListener,
-        OnCheckedChangeListener, OnItemSelectedListener, OnDialogConfirmListener, OnColorChangedListener {
-
-    private enum ColorMode {
-        BACKGROUND,
-        FONTCOLOR,
-        HIGHLIGHT,
-        POPUPCOLOR,
-        ICONCOLOR,
-        CARDCOLOR,
-        NONE
-    }
+        OnCheckedChangeListener, OnItemSelectedListener, OnConfirmListener, OnColorChangedListener {
 
     private GlobalSettings settings;
     private LocationLoader locationAsync;
@@ -80,15 +69,34 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
     private FontAdapter fontAdapter;
 
     private Dialog connectDialog, databaseDialog, logoutDialog, color_dialog_selector, appInfo;
-    private View root, layout_key, layout_proxy, layout_auth_en, layout_auth;
+    private View root, layout_hq_image, layout_key, layout_proxy, layout_auth_en, layout_auth;
     private EditText proxyAddr, proxyPort, proxyUser, proxyPass, api_key1, api_key2;
-    private Button background, fontColor, popupColor, highlight, cardColor, iconColor;
     private CompoundButton enableProxy, enableAuth, hqImage, enableAPI;
     private Spinner locationSpinner;
     private TextView list_size;
+    private Button[] colorButtons = new Button[ColorMode.values().length];
 
-    private ColorMode mode = ColorMode.NONE;
+    private ColorMode mode;
     private int color = 0;
+
+    private enum ColorMode {
+        BACKGROUND(0),
+        FONTCOLOR(1),
+        POPUPCOLOR(2),
+        HIGHLIGHT(3),
+        CARDCOLOR(4),
+        ICONCOLOR(5),
+        RETWEETCOLOR(6),
+        FAVORITECOLOR(7),
+        FOLLOWPENING(8),
+        FOLLOWCOLOR(9);
+
+        final int INDEX;
+
+        ColorMode(int idx) {
+            this.INDEX = idx;
+        }
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle b) {
@@ -102,6 +110,7 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         CompoundButton toggleImg = findViewById(R.id.toggleImg);
         CompoundButton toggleAns = findViewById(R.id.toggleAns);
         CompoundButton toolbarOverlap = findViewById(R.id.settings_toolbar_ov);
+        CompoundButton enablePreview = findViewById(R.id.settings_enable_prev);
         SeekBar listSizeSelector = findViewById(R.id.settings_list_seek);
         Spinner fontSpinner = findViewById(R.id.spinner_font);
         enableProxy = findViewById(R.id.settings_enable_proxy);
@@ -109,12 +118,16 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         hqImage = findViewById(R.id.settings_image_hq);
         enableAPI = findViewById(R.id.settings_set_custom_keys);
         locationSpinner = findViewById(R.id.spinner_woeid);
-        background = findViewById(R.id.color_background);
-        fontColor = findViewById(R.id.color_font);
-        popupColor = findViewById(R.id.color_popup);
-        highlight = findViewById(R.id.highlight_color);
-        cardColor = findViewById(R.id.color_card);
-        iconColor = findViewById(R.id.color_icon);
+        colorButtons[ColorMode.BACKGROUND.INDEX] = findViewById(R.id.color_background);
+        colorButtons[ColorMode.FONTCOLOR.INDEX] = findViewById(R.id.color_font);
+        colorButtons[ColorMode.POPUPCOLOR.INDEX] = findViewById(R.id.color_popup);
+        colorButtons[ColorMode.HIGHLIGHT.INDEX] = findViewById(R.id.highlight_color);
+        colorButtons[ColorMode.CARDCOLOR.INDEX] = findViewById(R.id.color_card);
+        colorButtons[ColorMode.ICONCOLOR.INDEX] = findViewById(R.id.color_icon);
+        colorButtons[ColorMode.RETWEETCOLOR.INDEX] = findViewById(R.id.color_rt);
+        colorButtons[ColorMode.FAVORITECOLOR.INDEX] = findViewById(R.id.color_fav);
+        colorButtons[ColorMode.FOLLOWPENING.INDEX] = findViewById(R.id.color_f_req);
+        colorButtons[ColorMode.FOLLOWCOLOR.INDEX] = findViewById(R.id.color_follow);
         proxyAddr = findViewById(R.id.edit_proxy_address);
         proxyPort = findViewById(R.id.edit_proxy_port);
         proxyUser = findViewById(R.id.edit_proxyuser);
@@ -123,6 +136,7 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         api_key2 = findViewById(R.id.settings_custom_key2);
         list_size = findViewById(R.id.settings_list_size);
         layout_proxy = findViewById(R.id.settings_layout_proxy);
+        layout_hq_image = findViewById(R.id.settings_image_hq_layout);
         layout_auth_en = findViewById(R.id.settings_layout_auth_enable);
         layout_auth = findViewById(R.id.settings_layout_proxy_auth);
         layout_key = findViewById(R.id.settings_layout_key);
@@ -132,20 +146,6 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         setSupportActionBar(toolbar);
 
         settings = GlobalSettings.getInstance(this);
-        if (!settings.isLoggedIn()) {
-            trend_card.setVisibility(GONE);
-            user_card.setVisibility(GONE);
-        }
-        if (!settings.isProxyEnabled()) {
-            layout_proxy.setVisibility(GONE);
-            layout_auth_en.setVisibility(GONE);
-        }
-        if (!settings.isProxyAuthSet()) {
-            layout_auth.setVisibility(GONE);
-        }
-        if (!settings.isCustomApiSet()) {
-            layout_key.setVisibility(GONE);
-        }
         locationAdapter = new LocationAdapter(settings);
         locationAdapter.addTop(settings.getTrendLocation());
         locationSpinner.setAdapter(locationAdapter);
@@ -157,10 +157,28 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
 
         AppStyles.setTheme(settings, root);
 
-        toggleImg.setChecked(settings.getImageLoad());
-        toggleAns.setChecked(settings.getAnswerLoad());
+        if (!settings.isLoggedIn()) {
+            trend_card.setVisibility(GONE);
+            user_card.setVisibility(GONE);
+        }
+        if (!settings.isProxyEnabled()) {
+            layout_proxy.setVisibility(GONE);
+            layout_auth_en.setVisibility(GONE);
+        }
+        if (!settings.imagesEnabled()) {
+            layout_hq_image.setVisibility(GONE);
+        }
+        if (!settings.isProxyAuthSet()) {
+            layout_auth.setVisibility(GONE);
+        }
+        if (!settings.isCustomApiSet()) {
+            layout_key.setVisibility(GONE);
+        }
+        toggleImg.setChecked(settings.imagesEnabled());
+        toggleAns.setChecked(settings.replyLoadingEnabled());
         enableAPI.setChecked(settings.isCustomApiSet());
-        toolbarOverlap.setChecked(settings.getToolbarOverlap());
+        enablePreview.setChecked(settings.linkPreviewEnabled());
+        toolbarOverlap.setChecked(settings.toolbarOverlapEnabled());
         proxyAddr.setText(settings.getProxyHost());
         proxyPort.setText(settings.getProxyPort());
         proxyUser.setText(settings.getProxyUser());
@@ -171,26 +189,24 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         listSizeSelector.setProgress(settings.getListSize() / 10 - 1);
         enableProxy.setChecked(settings.isProxyEnabled());
         enableAuth.setChecked(settings.isProxyAuthSet());
-        hqImage.setEnabled(settings.getImageLoad());
+        hqImage.setEnabled(settings.imagesEnabled());
         hqImage.setChecked(settings.getImageQuality());
         setButtonColors();
 
-        connectDialog = DialogBuilder.create(this, WRONG_PROXY, this);
-        databaseDialog = DialogBuilder.create(this, DEL_DATABASE, this);
-        logoutDialog = DialogBuilder.create(this, APP_LOG_OUT, this);
-        appInfo = DialogBuilder.createInfoDialog(this);
+        connectDialog = new ConfirmDialog(this, DialogType.WRONG_PROXY, this);
+        connectDialog = new ConfirmDialog(this, DialogType.WRONG_PROXY, this);
+        databaseDialog = new ConfirmDialog(this, DialogType.DEL_DATABASE, this);
+        logoutDialog = new ConfirmDialog(this, DialogType.APP_LOG_OUT, this);
+        appInfo = new InfoDialog(this);
 
-        background.setOnClickListener(this);
-        fontColor.setOnClickListener(this);
-        popupColor.setOnClickListener(this);
-        highlight.setOnClickListener(this);
-        cardColor.setOnClickListener(this);
-        iconColor.setOnClickListener(this);
+        for (Button button : colorButtons)
+            button.setOnClickListener(this);
         logout.setOnClickListener(this);
         delButton.setOnClickListener(this);
         toggleImg.setOnCheckedChangeListener(this);
         toggleAns.setOnCheckedChangeListener(this);
         enableAPI.setOnCheckedChangeListener(this);
+        enablePreview.setOnCheckedChangeListener(this);
         enableProxy.setOnCheckedChangeListener(this);
         enableAuth.setOnCheckedChangeListener(this);
         hqImage.setOnCheckedChangeListener(this);
@@ -251,22 +267,24 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
 
 
     @Override
-    public void onConfirm(DialogBuilder.DialogType type) {
+    public void onConfirm(DialogType type) {
         // confirm log out
-        if (type == APP_LOG_OUT) {
-            settings.logout();
+        if (type == DialogType.APP_LOG_OUT) {
+            // reset twitter singleton
             TwitterEngine.resetTwitter();
-            DatabaseAdapter.deleteDatabase(getApplicationContext());
+            // remove account from database
+            AccountDatabase.getInstance(this).removeLogin(settings.getCurrentUserId());
+            settings.logout();
             setResult(RETURN_APP_LOGOUT);
             finish();
         }
         // confirm delete database
-        else if (type == DEL_DATABASE) {
+        else if (type == DialogType.DEL_DATABASE) {
             DatabaseAdapter.deleteDatabase(getApplicationContext());
             setResult(RETURN_DB_CLEARED);
         }
         // confirm leaving without saving proxy changes
-        else if (type == WRONG_PROXY) {
+        else if (type == DialogType.WRONG_PROXY) {
             // exit without saving proxy settings
             finish();
         }
@@ -323,6 +341,30 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
             color = settings.getIconColor();
             setColor(color, false);
         }
+        // set retweet icon color
+        else if (v.getId() == R.id.color_rt) {
+            mode = ColorMode.RETWEETCOLOR;
+            color = settings.getRetweetIconColor();
+            setColor(color, false);
+        }
+        // set favorite icon color
+        else if (v.getId() == R.id.color_fav) {
+            mode = ColorMode.FAVORITECOLOR;
+            color = settings.getFavoriteIconColor();
+            setColor(color, false);
+        }
+        // set follow icon color
+        else if (v.getId() == R.id.color_f_req) {
+            mode = ColorMode.FOLLOWPENING;
+            color = settings.getFollowPendingColor();
+            setColor(color, false);
+        }
+        // set follow icon color
+        else if (v.getId() == R.id.color_follow) {
+            mode = ColorMode.FOLLOWCOLOR;
+            color = settings.getFollowIconColor();
+            setColor(color, false);
+        }
     }
 
 
@@ -336,6 +378,8 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
                     if (settings.isLoggedIn()) {
                         locationAdapter.notifyDataSetChanged();
                     }
+                    AppStyles.setTheme(settings, root);
+                    setButtonColors();
                     break;
 
                 case FONTCOLOR:
@@ -344,14 +388,18 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
                     if (settings.isLoggedIn()) {
                         locationAdapter.notifyDataSetChanged();
                     }
+                    AppStyles.setTheme(settings, root);
+                    setButtonColors();
                     break;
 
                 case POPUPCOLOR:
                     settings.setPopupColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
                     break;
 
                 case HIGHLIGHT:
                     settings.setHighlightColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
                     break;
 
                 case CARDCOLOR:
@@ -360,15 +408,37 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
                     if (settings.isLoggedIn()) {
                         locationAdapter.notifyDataSetChanged();
                     }
+                    AppStyles.setTheme(settings, root);
+                    setButtonColors();
                     break;
 
                 case ICONCOLOR:
                     settings.setIconColor(color);
                     invalidateOptionsMenu();
+                    AppStyles.setTheme(settings, root);
+                    setButtonColors();
+                    break;
+
+                case RETWEETCOLOR:
+                    settings.setRetweetIconColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
+                    break;
+
+                case FAVORITECOLOR:
+                    settings.setFavoriteIconColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
+                    break;
+
+                case FOLLOWPENING:
+                    settings.setFollowPendingColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
+                    break;
+
+                case FOLLOWCOLOR:
+                    settings.setFollowIconColor(color);
+                    AppStyles.setColorButton(colorButtons[mode.INDEX], color);
                     break;
             }
-            AppStyles.setTheme(settings, root);
-            setButtonColors();
         }
     }
 
@@ -379,6 +449,11 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         if (c.getId() == R.id.toggleImg) {
             settings.setImageLoad(checked);
             hqImage.setEnabled(checked);
+            if (checked) {
+                layout_hq_image.setVisibility(VISIBLE);
+            } else {
+                layout_hq_image.setVisibility(GONE);
+            }
         }
         // toggle automatic answer load
         else if (c.getId() == R.id.toggleAns) {
@@ -391,6 +466,10 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
         // enable toolbar overlap
         else if (c.getId() == R.id.settings_toolbar_ov) {
             settings.setToolbarOverlap(checked);
+        }
+        // enable link preview
+        else if (c.getId() == R.id.settings_enable_prev) {
+            settings.setLinkPreview(checked);
         }
         // enable proxy settings
         else if (c.getId() == R.id.settings_enable_proxy) {
@@ -511,16 +590,9 @@ public class AppSettings extends AppCompatActivity implements OnClickListener, O
      * setup all color buttons color
      */
     private void setButtonColors() {
-        Button[] colorButtons = {background, fontColor, popupColor, highlight, cardColor, iconColor};
         int[] colors = settings.getAllColors();
         for (int i = 0; i < colorButtons.length; i++) {
-            // set button color
-            colorButtons[i].setBackgroundColor(colors[i]);
-            // invert font & border color
-            int invertedColor = (colors[i] | Color.BLACK) ^ 0xffffff;
-            colorButtons[i].setTextColor(invertedColor);
-            View border = (View) colorButtons[i].getParent();
-            border.setBackgroundColor(invertedColor);
+            AppStyles.setColorButton(colorButtons[i], colors[i]);
         }
     }
 

@@ -1,4 +1,4 @@
-package org.nuclearfog.twidda.backend.items;
+package org.nuclearfog.twidda.backend.model;
 
 import androidx.annotation.NonNull;
 
@@ -176,7 +176,7 @@ public class User implements Serializable {
     }
 
     /**
-     * get Profile image_add link
+     * get profile image link
      *
      * @return link
      */
@@ -185,7 +185,7 @@ public class User implements Serializable {
     }
 
     /**
-     * get banner image_add link
+     * get banner image link
      *
      * @return link
      */

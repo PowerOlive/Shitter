@@ -27,10 +27,12 @@ import com.google.android.material.tabs.TabLayout.Tab;
 import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.FragmentAdapter;
 import org.nuclearfog.twidda.backend.LinkLoader;
+import org.nuclearfog.twidda.backend.engine.TwitterEngine;
 import org.nuclearfog.twidda.backend.utils.AppStyles;
 import org.nuclearfog.twidda.database.GlobalSettings;
+import org.nuclearfog.twidda.dialog.ProgressDialog;
 
-import static android.view.Window.FEATURE_NO_TITLE;
+import static org.nuclearfog.twidda.activity.AccountActivity.RET_ACCOUNT_CHANGE;
 import static org.nuclearfog.twidda.activity.SearchPage.KEY_SEARCH_QUERY;
 import static org.nuclearfog.twidda.activity.UserProfile.KEY_PROFILE_ID;
 
@@ -66,7 +68,7 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
 
     // Views and dialogs
     private Dialog loadingCircle;
-    private TabLayout tablayout;
+    private TabLayout tabLayout;
     private ViewPager pager;
     private View root;
 
@@ -83,24 +85,20 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
         setContentView(R.layout.page_main);
         Toolbar toolbar = findViewById(R.id.home_toolbar);
         pager = findViewById(R.id.home_pager);
-        tablayout = findViewById(R.id.home_tab);
+        tabLayout = findViewById(R.id.home_tab);
         root = findViewById(R.id.main_layout);
-        loadingCircle = new Dialog(this, R.style.LoadingDialog);
-        View load = View.inflate(this, R.layout.item_load, null);
+        loadingCircle = new ProgressDialog(this, null);
 
         settings = GlobalSettings.getInstance(this);
-        tablayout.setupWithViewPager(pager);
+        tabLayout.setupWithViewPager(pager);
         pager.setOffscreenPageLimit(3);
-        loadingCircle.requestWindowFeature(FEATURE_NO_TITLE);
-        loadingCircle.setContentView(load);
-        loadingCircle.setCanceledOnTouchOutside(false);
         adapter = new FragmentAdapter(getSupportFragmentManager());
         pager.setAdapter(adapter);
         AppStyles.setTheme(settings, root);
 
         toolbar.setTitle("");
         setSupportActionBar(toolbar);
-        tablayout.addOnTabSelectedListener(this);
+        tabLayout.addOnTabSelectedListener(this);
     }
 
 
@@ -112,7 +110,7 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
             startActivityForResult(loginIntent, REQUEST_APP_LOGIN);
         } else if (adapter.isEmpty()) {
             adapter.setupForHomePage();
-            AppStyles.setTabIcons(tablayout, settings, R.array.home_tab_icons);
+            AppStyles.setTabIcons(tabLayout, settings, R.array.home_tab_icons);
             if (getIntent().getData() != null) {
                 LinkLoader linkLoader = new LinkLoader(this);
                 linkLoader.execute(getIntent().getData());
@@ -128,6 +126,9 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
                 AppStyles.setTheme(settings, root);
                 if (returnCode == RESULT_CANCELED) {
                     finish();
+                } else if (returnCode == RET_ACCOUNT_CHANGE) {
+                    TwitterEngine.resetTwitter();
+                    adapter.notifySettingsChanged();
                 } else {
                     adapter.notifySettingsChanged();
                 }
@@ -135,7 +136,7 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
 
             case REQUEST_APP_SETTINGS:
                 AppStyles.setTheme(settings, root);
-                AppStyles.setTabIcons(tablayout, settings, R.array.home_tab_icons);
+                AppStyles.setTabIcons(tabLayout, settings, R.array.home_tab_icons);
                 if (returnCode == RETURN_APP_LOGOUT) {
                     adapter.clear();
                     pager.setAdapter(adapter);
@@ -165,13 +166,15 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
         MenuItem tweet = m.findItem(R.id.action_tweet);
         MenuItem search = m.findItem(R.id.action_search);
         MenuItem setting = m.findItem(R.id.action_settings);
+        MenuItem account = m.findItem(R.id.action_account);
 
-        switch (tablayout.getSelectedTabPosition()) {
+        switch (tabLayout.getSelectedTabPosition()) {
             case 0:
                 profile.setVisible(true);
                 search.setVisible(false);
                 tweet.setVisible(true);
                 setting.setVisible(false);
+                account.setVisible(false);
                 search.collapseActionView();
                 break;
 
@@ -180,6 +183,7 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
                 search.setVisible(true);
                 tweet.setVisible(false);
                 setting.setVisible(true);
+                account.setVisible(false);
                 break;
 
             case 2:
@@ -187,6 +191,7 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
                 search.setVisible(false);
                 tweet.setVisible(false);
                 setting.setVisible(true);
+                account.setVisible(true);
                 search.collapseActionView();
                 break;
         }
@@ -217,13 +222,18 @@ public class MainActivity extends AppCompatActivity implements OnTabSelectedList
             SearchView searchView = (SearchView) item.getActionView();
             AppStyles.setTheme(settings, searchView, Color.TRANSPARENT);
         }
+        // open account manager
+        else if (item.getItemId() == R.id.action_account) {
+            Intent accountManager = new Intent(this, AccountActivity.class);
+            startActivityForResult(accountManager, REQUEST_APP_LOGIN);
+        }
         return super.onOptionsItemSelected(item);
     }
 
 
     @Override
     public void onBackPressed() {
-        if (tablayout.getSelectedTabPosition() > 0) {
+        if (tabLayout.getSelectedTabPosition() > 0) {
             pager.setCurrentItem(0);
         } else {
             super.onBackPressed();

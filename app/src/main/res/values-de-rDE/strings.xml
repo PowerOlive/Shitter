@@ -11,7 +11,7 @@
     <string name="profile_image">Profilbild</string>
     <string name="title_settings">Einstellungen</string>
     <string name="settings_image">Bilder laden</string>
-    <string name="settings_clear_data">App Daten löschen</string>
+    <string name="settings_clear_data">Daten löschen</string>
     <string name="toolbar_userlist_retweet">Tweet retweetet von</string>
     <string name="settings_background">Hintergrund</string>
     <string name="confirm_delete_tweet">Tweet löschen?</string>
@@ -165,7 +165,7 @@
     <string name="info_list_unfollowed">Liste entfolgt</string>
     <string name="info_unfollowed">entfolgt!</string>
     <string name="descr_add_profile_image">Profilbild ändern</string>
-    <string name="settings_enable_hq_img">Hohe Qualität</string>
+    <string name="settings_enable_hq_img">Bilder in hoher Auflösung</string>
     <string name="menu_app_info">Über</string>
     <string name="info_user_added_to_list">Nutzer wurde zur Liste hinzugefügt!</string>
     <string name="error_username_format">Nutzername falsch!</string>
@@ -195,5 +195,16 @@
     <string name="button_share">Videolink teilen</string>
     <string name="info_cant_add_gif">GIF konnte nicht hinzugefügt werden!</string>
     <string name="settings_look">Aussehen</string>
-    <string name="settings_enable_toolbar_overlap">Überlappe Profilbanner</string>
+    <string name="dialog_link_image_preview">Linkvorschau Bild</string>
+    <string name="dialog_link_close">Linkvorschau schließen</string>
+    <string name="settings_toggle_link_preview">Linkvorschau aktivieren</string>
+    <string name="confirm_remove_account">Account aus der Liste entfernen?</string>
+    <string name="menu_select_account">Account auswählen</string>
+    <string name="menu_add_account">Account hinzufügen</string>
+    <string name="settings_rt_icon_color">Retweet</string>
+    <string name="settings_fv_icon_color">Favorit</string>
+    <string name="settings_follow_req_color">Anfrage Icon</string>
+    <string name="settings_follow_color">Follow Icon</string>
+    <string name="settings_enable_toolbar_overlap">Kompakte Profilansicht</string>
+    <string name="account_user_unnamed">\'unbenannt\'</string>
 </resources>

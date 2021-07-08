@@ -9,16 +9,17 @@ import androidx.annotation.Nullable;
 
 import org.nuclearfog.twidda.backend.holder.ListHolder;
 import org.nuclearfog.twidda.backend.holder.TweetHolder;
-import org.nuclearfog.twidda.backend.items.Message;
-import org.nuclearfog.twidda.backend.items.Relation;
-import org.nuclearfog.twidda.backend.items.Trend;
-import org.nuclearfog.twidda.backend.items.TrendLocation;
-import org.nuclearfog.twidda.backend.items.Tweet;
-import org.nuclearfog.twidda.backend.items.TwitterList;
-import org.nuclearfog.twidda.backend.items.User;
 import org.nuclearfog.twidda.backend.lists.MessageList;
 import org.nuclearfog.twidda.backend.lists.UserList;
 import org.nuclearfog.twidda.backend.lists.UserLists;
+import org.nuclearfog.twidda.backend.model.Message;
+import org.nuclearfog.twidda.backend.model.Relation;
+import org.nuclearfog.twidda.backend.model.Trend;
+import org.nuclearfog.twidda.backend.model.TrendLocation;
+import org.nuclearfog.twidda.backend.model.Tweet;
+import org.nuclearfog.twidda.backend.model.TwitterList;
+import org.nuclearfog.twidda.backend.model.User;
+import org.nuclearfog.twidda.database.AccountDatabase;
 import org.nuclearfog.twidda.database.GlobalSettings;
 
 import java.io.File;
@@ -27,6 +28,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -58,14 +61,13 @@ import twitter4j.conf.ConfigurationBuilder;
 @Obfuscate
 public class TwitterEngine {
 
-    private GlobalSettings settings;
     private static final TwitterEngine mTwitter = new TwitterEngine();
 
-    private Twitter twitter;
     @Nullable
     private RequestToken reqToken;
-    @Nullable
-    private AccessToken aToken;
+    private GlobalSettings settings;
+    private AccountDatabase accountDB;
+    private Twitter twitter;
 
     private boolean isInitialized = false;
 
@@ -76,9 +78,10 @@ public class TwitterEngine {
     /**
      * Initialize Twitter4J instance
      */
-    private void initTwitter() {
+    private void initTwitter(AccessToken aToken) {
         TLSSocketFactory.getSupportTLSifNeeded();
         ConfigurationBuilder builder = new ConfigurationBuilder();
+        // set API keys
         if (settings.isCustomApiSet()) {
             builder.setOAuthConsumerKey(settings.getConsumerKey());
             builder.setOAuthConsumerSecret(settings.getConsumerSecret());
@@ -95,13 +98,15 @@ public class TwitterEngine {
                 builder.setHttpProxyPassword(settings.getProxyPass());
             }
         }
+        // init proxy connection
+        ProxySetup.setConnection(settings);
+        // init Twitter instance
         TwitterFactory factory = new TwitterFactory(builder.build());
         if (aToken != null) {
             twitter = factory.getInstance(aToken);
         } else {
             twitter = factory.getInstance();
         }
-        ProxySetup.setConnection(settings);
     }
 
     /**
@@ -112,14 +117,36 @@ public class TwitterEngine {
      */
     public static TwitterEngine getInstance(Context context) {
         if (!mTwitter.isInitialized) {
-            mTwitter.settings = GlobalSettings.getInstance(context);
-            if (mTwitter.settings.isLoggedIn()) {
-                String[] keys = mTwitter.settings.getCurrentUserAccessToken();
-                mTwitter.aToken = new AccessToken(keys[0], keys[1]);
-            }
-            mTwitter.initTwitter();
             mTwitter.isInitialized = true;
+            // initialize database and settings
+            mTwitter.settings = GlobalSettings.getInstance(context);
+            mTwitter.accountDB = AccountDatabase.getInstance(context);
+            // check if already logged in
+            if (mTwitter.settings.isLoggedIn()) {
+                // init login access
+                String[] keys = mTwitter.settings.getCurrentUserAccessToken();
+                AccessToken token = new AccessToken(keys[0], keys[1]);
+                mTwitter.initTwitter(token);
+            } else {
+                // init empty session
+                mTwitter.initTwitter(null);
+            }
         }
+        return mTwitter;
+    }
+
+    /**
+     * get singleton instance with empty session
+     *
+     * @return TwitterEngine Instance
+     */
+    public static TwitterEngine getEmptyInstance(Context context) {
+        // initialize storage
+        mTwitter.settings = GlobalSettings.getInstance(context);
+        mTwitter.accountDB = AccountDatabase.getInstance(context);
+        // init empty session
+        mTwitter.isInitialized = false;
+        mTwitter.initTwitter(null);
         return mTwitter;
     }
 
@@ -128,8 +155,6 @@ public class TwitterEngine {
      */
     public static void resetTwitter() {
         mTwitter.isInitialized = false;
-        mTwitter.reqToken = null;   // Destroy connections
-        mTwitter.aToken = null;     //
     }
 
     /**
@@ -140,8 +165,9 @@ public class TwitterEngine {
      */
     public String request() throws EngineException {
         try {
-            if (reqToken == null)
+            if (reqToken == null) {
                 reqToken = twitter.getOAuthRequestToken();
+            }
         } catch (Exception err) {
             throw new EngineException(err);
         }
@@ -149,21 +175,28 @@ public class TwitterEngine {
     }
 
     /**
-     * Get Access-Token, store and initialize Twitter
+     * Get account access keys, store them and initialize Twitter login
      *
-     * @param twitterPin PIN for accessing account
+     * @param twitterPin PIN from the twitter login page, after successful login
      * @throws EngineException if pin is false or request token is null
      */
     public void initialize(String twitterPin) throws EngineException {
         try {
+            // check if corresponding request key is valid
             if (reqToken != null) {
+                // get login keys
                 AccessToken accessToken = twitter.getOAuthAccessToken(reqToken, twitterPin);
                 String key1 = accessToken.getToken();
                 String key2 = accessToken.getTokenSecret();
-                aToken = new AccessToken(key1, key2);
-                initTwitter();
+                // init twitter login
+                initTwitter(new AccessToken(key1, key2));
+                // save login to storage and database
                 settings.setConnection(key1, key2, twitter.getId());
+                accountDB.setLogin(twitter.getId(), key1, key2);
+                // request token is not needed anymore
+                reqToken = null;
             } else {
+                // request token does not exist, open login page first
                 throw new EngineException(EngineException.InternalErrorType.TOKENNOTSET);
             }
         } catch (Exception err) {
@@ -410,6 +443,22 @@ public class TwitterEngine {
     public User getUser(long userId) throws EngineException {
         try {
             return new User(twitter.showUser(userId), twitter.getId());
+        } catch (Exception err) {
+            throw new EngineException(err);
+        }
+    }
+
+    /**
+     * get a list of users
+     *
+     * @param users user IDs
+     * @return list of users
+     * @throws EngineException if Access is unavailable
+     */
+    public List<User> getUsers(long[] users) throws EngineException {
+        try {
+            // todo add paging system
+            return convertUserList(twitter.lookupUsers(users));
         } catch (Exception err) {
             throw new EngineException(err);
         }
@@ -784,14 +833,40 @@ public class TwitterEngine {
         try {
             DirectMessageList dmList;
             int load = settings.getListSize();
-            if (cursor != null)
+            if (cursor != null) {
                 dmList = twitter.getDirectMessages(load, cursor);
-            else
+            } else {
                 dmList = twitter.getDirectMessages(load);
+            }
             MessageList result = new MessageList(cursor, dmList.getNextCursor());
+            HashMap<Long, User> userMap = new HashMap<Long, User>();
+
             for (DirectMessage dm : dmList) {
                 try {
-                    result.add(getMessage(dm));
+                    // get sender of the message
+                    User sender;
+                    if (userMap.containsKey(dm.getSenderId())) {
+                        // recycle user information
+                        sender = userMap.get(dm.getSenderId());
+                    } else {
+                        // download new user information
+                        sender = getUser(dm.getSenderId());
+                        userMap.put(dm.getSenderId(), sender);
+
+                    }
+                    // get receiver of the message
+                    User receiver;
+                    if (userMap.containsKey(dm.getRecipientId())) {
+                        // recycle user information
+                        receiver = userMap.get(dm.getRecipientId());
+                    } else {
+                        // download new user information
+                        receiver = getUser(dm.getRecipientId());
+                        userMap.put(dm.getRecipientId(), receiver);
+                    }
+                    // build message and add to list
+                    Message message = new Message(dm, sender, receiver);
+                    result.add(message);
                 } catch (EngineException err) {
                     // ignore messages from suspended/deleted users
                 }
@@ -1144,7 +1219,8 @@ public class TwitterEngine {
      * @return User
      */
     private List<User> convertUserList(List<twitter4j.User> users) throws TwitterException {
-        List<User> result = new LinkedList<>();
+        ArrayList<User> result = new ArrayList<>();
+        result.ensureCapacity(users.size());
         for (twitter4j.User user : users) {
             User item = new User(user, twitter.getId());
             result.add(item);
@@ -1159,28 +1235,10 @@ public class TwitterEngine {
      * @return TwitterStatus
      */
     private List<Tweet> convertStatusList(List<Status> statuses) throws TwitterException {
-        List<Tweet> result = new LinkedList<>();
+        ArrayList<Tweet> result = new ArrayList<>();
+        result.ensureCapacity(statuses.size());
         for (Status status : statuses)
             result.add(new Tweet(status, twitter.getId()));
         return result;
-    }
-
-    /**
-     * @param dm Twitter4J direct message
-     * @return dm item
-     * @throws EngineException if Access is unavailable
-     */
-    private Message getMessage(DirectMessage dm) throws EngineException {
-        try {
-            twitter4j.User receiver;
-            twitter4j.User sender = twitter.showUser(dm.getSenderId());
-            if (dm.getSenderId() != dm.getRecipientId())
-                receiver = twitter.showUser(dm.getRecipientId());
-            else
-                receiver = sender;
-            return new Message(dm, twitter.getId(), sender, receiver);
-        } catch (Exception err) {
-            throw new EngineException(err);
-        }
     }
 }

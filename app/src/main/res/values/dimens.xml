@@ -12,9 +12,11 @@
     <dimen name="settings_info_appname_font">18sp</dimen>
     <dimen name="settings_layout_padding">16dp</dimen>
     <dimen name="settings_textsize">20sp</dimen>
-    <dimen name="settings_button_color_height">40sp</dimen>
+    <dimen name="settings_button_color_height">36sp</dimen>
     <dimen name="settings_button_height">30sp</dimen>
-    <dimen name="settings_button_color_edge_thickness">1dp</dimen>
+    <dimen name="settings_color_button_margin">2dp</dimen>
+    <dimen name="settings_color_button_stroke_width">2dp</dimen>
+    <dimen name="settings_color_button_corner_radius">4dp</dimen>
     <dimen name="settings_button_margin">5dp</dimen>
     <dimen name="settings_switch_margin">10dp</dimen>
     <dimen name="settings_spinner_margin">10dp</dimen>
@@ -129,13 +131,11 @@
 
     <!--dimens of popup_tweet.xml-->
     <dimen name="tweetpopup_margin_layout">10dp</dimen>
-    <dimen name="tweetpopup_button_size">40dp</dimen>
     <dimen name="tweetpopup_button_margin">7dp</dimen>
 
     <!--dimens of popup_dm.xml-->
     <dimen name="dmpopup_margin_background">10dp</dimen>
     <dimen name="dmpopup_text_margin">5dp</dimen>
-    <dimen name="dmpopup_button_size">40dp</dimen>
     <dimen name="dmpopup_button_margin">5dp</dimen>
 
     <!--dimen of popup_userlist.xml-->
@@ -167,7 +167,6 @@
     <!--dimens of item_image_load.xml-->
 
     <!--dimens of page_userlist.xml-->
-    <dimen name="userlistpage_toolbar_height">@dimen/toolbar_height</dimen>
 
     <!--dimens of page_search.xml-->
     <dimen name="searchpage_toolbar_height">@dimen/toolbar_height</dimen>
@@ -204,5 +203,20 @@
     <dimen name="controller_button_width">64dp</dimen>
     <dimen name="controller_button_height">32dp</dimen>
     <dimen name="controller_text_width">36sp</dimen>
+
+    <!--dimens of link preview-->
+    <dimen name="dialog_linkpreview_textsize_title">18sp</dimen>
+    <dimen name="dialog_linkpreview_textsize_description">14sp</dimen>
+    <dimen name="dialog_linkpreview_btn_size">32dp</dimen>
+    <dimen name="dialog_linkpreview_margin">4dp</dimen>
+    <dimen name="dialog_linkpreview_padding">5dp</dimen>
+    <integer name="dialog_description_line_count">10</integer>
+
+    <!--dimens of item_account.xml-->
+    <dimen name="login_name_textsize_big">14sp</dimen>
+    <dimen name="login_name_textsize">12sp</dimen>
+    <dimen name="login_layout_padding">8dp</dimen>
+    <dimen name="login_cross_size">36dp</dimen>
+    <dimen name="login_image_size">64dp</dimen>
 
 </resources>

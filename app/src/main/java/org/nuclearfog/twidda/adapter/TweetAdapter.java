@@ -1,6 +1,5 @@
 package org.nuclearfog.twidda.adapter;
 
-import android.graphics.Color;
 import android.text.Spanned;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -17,8 +16,8 @@ import org.nuclearfog.tag.Tagger;
 import org.nuclearfog.twidda.R;
 import org.nuclearfog.twidda.adapter.holder.Footer;
 import org.nuclearfog.twidda.adapter.holder.TweetHolder;
-import org.nuclearfog.twidda.backend.items.Tweet;
-import org.nuclearfog.twidda.backend.items.User;
+import org.nuclearfog.twidda.backend.model.Tweet;
+import org.nuclearfog.twidda.backend.model.User;
 import org.nuclearfog.twidda.database.GlobalSettings;
 
 import java.text.NumberFormat;
@@ -218,7 +217,7 @@ public class TweetAdapter extends Adapter<ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (viewType == VIEW_TWEET) {
-            final TweetHolder vh = new TweetHolder(parent);
+            final TweetHolder vh = new TweetHolder(parent, settings);
             vh.itemView.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -231,7 +230,7 @@ public class TweetAdapter extends Adapter<ViewHolder> {
             });
             return vh;
         } else {
-            final Footer footer = new Footer(parent, false);
+            final Footer footer = new Footer(parent, settings, false);
             footer.loadBtn.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -285,12 +284,12 @@ public class TweetAdapter extends Adapter<ViewHolder> {
             tweetItem.textViews[6].setText(formatCreationTime(tweet.getTime()));
 
             if (tweet.retweeted()) {
-                tweetItem.rtIcon.setColorFilter(Color.GREEN, SRC_IN);
+                tweetItem.rtIcon.setColorFilter(settings.getRetweetIconColor(), SRC_IN);
             } else {
                 tweetItem.rtIcon.setColorFilter(settings.getIconColor(), SRC_IN);
             }
             if (tweet.favored()) {
-                tweetItem.favIcon.setColorFilter(Color.YELLOW, SRC_IN);
+                tweetItem.favIcon.setColorFilter(settings.getFavoriteIconColor(), SRC_IN);
             } else {
                 tweetItem.favIcon.setColorFilter(settings.getIconColor(), SRC_IN);
             }
@@ -304,7 +303,7 @@ public class TweetAdapter extends Adapter<ViewHolder> {
             } else {
                 tweetItem.lockedIcon.setVisibility(GONE);
             }
-            if (settings.getImageLoad() && user.hasProfileImage()) {
+            if (settings.imagesEnabled() && user.hasProfileImage()) {
                 String pbLink = user.getImageLink();
                 if (!user.hasDefaultProfileImage())
                     pbLink += settings.getImageSuffix();
